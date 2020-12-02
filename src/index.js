@@ -1,4 +1,4 @@
-import { fromEvent, merge } from 'rxjs';
+import { fromEvent, mergeMap, from } from 'rxjs';
 import { scan } from 'rxjs/operators';
 import {partial, defaults, forEach, map, random, findIndex, range} from 'lodash-es';
 
@@ -54,14 +54,11 @@ function render(ctx, state) {
 function init() {
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-    const down = fromEvent(document, 'mousedown');
-    const move = fromEvent(document, 'mousemove');
-    const up = fromEvent(document, 'mouseup');
-    const mouse = merge(
-          down,
-          move,
-          up
-        );
+//    const down = fromEvent(document, 'mousedown');
+  //  const move = fromEvent(document, 'mousemove');
+    //const up = fromEvent(document, 'mouseup');
+    const mouse = mergeMap(from(['down', 'move', 'up']), fromEvent)
+
     const initial_state = {
       'circles': map(range(0,10), x=>[
         [x*20,x*20],

@@ -1,6 +1,6 @@
-import { fromEvent, from } from 'rxjs';
-import { scan, mergeMap, map as rxmap} from 'rxjs/operators';
-import {partial, defaults, forEach, map, random, findIndex, range} from 'lodash-es';
+import { fromEvent, merge, of} from 'rxjs';
+import { scan, map as rxMap, mergeMap } from 'rxjs/operators';
+import { partial, defaults, forEach, map, random, findIndex, range} from 'lodash-es';
 
 function norm2(x,y) {
   return x*x + y*y;
@@ -28,7 +28,7 @@ function process_mouse(state, evt) {
     }
     return state;
     case 'mousemove':
-    if (state.chosen_circle && state.chosen_circle > -1) {
+    if (state.chosen_circle > -1) {
       var circ = state.circles[state.chosen_circle][0]
       var offset = minus([evt.offsetX, evt.offsetY], state.chosen_at)
       state.circles[state.chosen_circle][0] = plus(state.chosen_at, offset);
@@ -50,13 +50,13 @@ function render(ctx, state) {
     ctx.fill();
   });
   forEach(state.edges, function(e) {
-    f = state.circles[e[0]][0];
-    t = state.circles[e[1]][0];
-    ctx.moveTo(f[0], f[1]);
-
-    ctx.beginPath();
-    ctx.lineTo(t[0], t[1]);
+    var f = state.circles[e[0]][0];
+    var t = state.circles[e[1]][0];
+    ctx.lineWidth = 1;
     ctx.strokeStyle= 'black';
+    ctx.beginPath();
+    ctx.moveTo(f[0], f[1]);
+    ctx.lineTo(t[0], t[1]);
     ctx.stroke();
   });
 }
@@ -64,19 +64,20 @@ function render(ctx, state) {
 function init() {
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
-
+    const down = fromEvent(document, 'mousedown');
+    const move = fromEvent(document, 'mousemove');
+    const up = fromEvent(document, 'mouseup');
+    const mouse = of('mousedown', 'mousemove', 'mouseup').pipe(
+      mergeMap(partial(fromEvent,document)));
     const initial_state = {
-      'circles': map(range(0,10), x=>[
-        [random(10,590), random(10,590)],
+      'chosen_circle': -1,
+      'circles': map(range(0,41), x=>[
+        [random(10,590),random(10,590)],
         10]),
-      'edges': map(range(0,100), x=>[
-        [random(0,10), random(0,10),]])
+      'edges': map(range(0,500), x=>
+        [random(0,40), random(0,40)])
     }
-    const mouse = from(['down', 'move', 'up']).pipe(
-      rxmap(fromEvent),
-      mergeMap,
-      scan(process_mouse, initial_state))
-    const mouse_observer = mouse.pipe()
+    const mouse_observer = mouse.pipe(scan(process_mouse, initial_state))
     render(ctx, initial_state);
     mouse_observer.subscribe(partial(render, ctx))
 }

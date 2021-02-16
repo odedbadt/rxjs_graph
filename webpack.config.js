@@ -7,5 +7,9 @@ module.exports = {
    output: {
     filename: 'main.js',
     path: __dirname + '/public'
-  }
+  },
+  'mode': 'development',
+  'optimization': {
+    'minimize': false
+    }
 };

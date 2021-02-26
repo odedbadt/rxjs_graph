@@ -1,11 +1,14 @@
 
 var webpack = require('webpack');
 module.exports = {
-  'entry': './src/index.js',
+  'entry': {
+    'index': './src/index.js',
+    'rxjs': './src/rxjs.js',
+  },
   'watch':true,
   'devtool': "eval-source-map",
    output: {
-    filename: 'main.js',
+    filename: '[name].js',
     path: __dirname + '/public'
   },
   'mode': 'development',

@@ -90,8 +90,15 @@ function* _mouse_processor(initial_state, hub, output_channel) {
       switch (evt.type) {
         case 'override':
             sprite_state.sprites = evt.sprites;
-            sprite_state._src = 'data';
-            publish(hub, output_channel, sprite_state);
+            if (sprite_state.hovered != -1 && sprite_state.sprites[sprite_state.hovered]) {
+                sprite_state._src = 'data';
+    //sprite_chosen_at = new_loc + chosen_at - mouse_loc
+                sprite_state.sprite_chosen_at = minus(plus(
+                            sprite_state.sprites[sprite_state.hovered].offset,
+                            prev_state.chosen_at),
+                            prev_state.mouse_loc);                          
+                publish(hub, output_channel, sprite_state);
+            }
             break;
         case 'mousedown':
         if (evt.shiftKey) {
@@ -129,12 +136,15 @@ function* _mouse_processor(initial_state, hub, output_channel) {
             if (prev_state.hovered && prev_state.hovered > -1) {        
                 const sprite_loc = prev_state.sprites[prev_state.hovered].offset
                 const mouse_loc = [evt.offsetX, evt.offsetY]
+                //new_loc = mouse_loc + sprite_chosen_at - chosen_at
+                //sprite_chosen_at = new_loc + chosen_at - mouse_loc
                 const new_loc = plus(minus(
                         prev_state.sprite_chosen_at, // S0
                         prev_state.chosen_at), // M0
                         mouse_loc);
                 sprite_state.sprites[sprite_state.hovered].offset = new_loc;        
                 sprite_state.last_modified = sprite_state.hovered;
+                sprite_state.mouse_loc = mouse_loc;
                 publish(hub, output_channel, sprite_state);
             break;
             }
@@ -150,24 +160,31 @@ function* _mouse_processor(initial_state, hub, output_channel) {
     }
 }
 function* _data_processor(hub, mouse_topic) {
+    var physical_state = {
+        'objects': [
+            {'offset':null},
+            {'offset':[30,30]},
+            {'offset':[30,30]},
+            {'offset':[30,30]},
+            {'offset':[30,30]}
+        ]
+    }
     while (true) {
         var prev_state = clone(sprite_state)
         var sprite_state = yield;
         var a = sprite_state.last_modified;
         if (typeof(a) != "undefined" && a != -1) {
-            for (var j = 0; j < 3; j++) {
-                if (j < a) {
-                    sprite_state.sprites[j].offset = prev_state.sprites[j].offset;
-                } 
+            const base_offset = a > 0 ? prev_state.sprites[a - 1].offset : [0,0]
+            physical_state.objects[a].offset = minus(
+                sprite_state.sprites[a].offset,
+                base_offset);
+            
+            for (var j = a + 1; j < prev_state.sprites.length; j++) {
+                    sprite_state.sprites[j].offset = plus(
+                        sprite_state.sprites[j - 1].offset, 
+                        physical_state.objects[j].offset);
             }
-            var b = (a + 1) % 3; 
-            var c = (a + 2) % 3;
             var modified_sprite_state = clone(sprite_state);
-            modified_sprite_state.sprites[c].offset =
-                scale(plus(
-                    modified_sprite_state.sprites[b].offset,
-                    modified_sprite_state.sprites[a].offset
-                    ), 0.5)
             var is_data_src = sprite_state._src == 'data';
             if (!is_data_src) {
                 window.setTimeout(function() {
@@ -225,10 +242,10 @@ function init() {
     const mouse_trap = document.getElementById('mouse_trap');
     const ctx = canvas.getContext('2d');
     const mouse_trap_ctx = mouse_trap.getContext('2d');
-    const colors = ['red', 'violet', 'blue']
+    const colors = ['red', 'violet', 'blue',  'white', 'green']
     const initial_sprite_state = {
       'hovered': -1,
-      'sprites': map(range(0,3), ((x,j)=>({
+      'sprites': map(range(0,5), ((x,j)=>({
         'offset': [x*50+100,x*50+100],
         'radius': 10,
         'color': colors[j]}))),

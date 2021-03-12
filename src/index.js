@@ -3,27 +3,10 @@ import { scan, map as rxMap, mergeMap, filter as rxFilter } from 'rxjs/operators
 import { collectionData } from 'rxfire/firestore';
 // import { fromEvent, merge, of, Subject} from 'rxjs';
 // import { scan, map as rxMap, mergeMap, filter as rxFilter } from 'rxjs/operators';
-import { partial, defaults, forEach, map, random, findIndex, range, set, clone, forIn } from 'lodash-es';
+import { partial, defaults, forEach, map, random, findIndex, range, set, clone, forIn, zip } from 'lodash-es';
 //import { collectionData } from 'rxfire/firestore';
-
-function norm2(x,y) {
-  return x*x + y*y;
-}
-function dist2(x1,y1,x2,y2) {
-  return norm2(x1-x2, y1-y2);
-}
-function minus(p1, p2) {
-  return [p1[0] - p2[0], p1[1] - p2[1]];
-}
-function plus(p1, p2) {
-  return [p1[0] + p2[0], p1[1] + p2[1]]
-}
-function scale(p, s) {
-  return [s*p[0], s*p[1]]
-}
-function round(p, gridsize) {
-    return [Math.round(p[0]/gridsize)*gridsize, Math.round(p[1]/gridsize)*gridsize]
-}
+import {publish, register_consumer} from './csp.js'
+import {plus, minus, round, scale} from './vector.js'
 function permute_indices() {
     const forward = new Map();
     const backward = new Map();
@@ -133,7 +116,7 @@ function* _mouse_processor(initial_state, hub, output_channel) {
         }
         case 'mousemove':
 
-            if (prev_state.hovered && prev_state.hovered > -1) {        
+            if (prev_state.hovered != -1) {        
                 const sprite_loc = prev_state.sprites[prev_state.hovered].offset
                 const mouse_loc = [evt.offsetX, evt.offsetY]
                 //new_loc = mouse_loc + sprite_chosen_at - chosen_at
@@ -162,34 +145,32 @@ function* _mouse_processor(initial_state, hub, output_channel) {
 function* _data_processor(hub, mouse_topic) {
     var physical_state = {
         'objects': [
-            {'offset':null},
-            {'offset':[30,30]},
-            {'offset':[30,30]},
-            {'offset':[30,30]},
-            {'offset':[30,30]}
         ]
     }
     while (true) {
-        var prev_state = clone(sprite_state)
-        var sprite_state = yield;
-        var a = sprite_state.last_modified;
-        if (typeof(a) != "undefined" && a != -1) {
-            const base_offset = a > 0 ? prev_state.sprites[a - 1].offset : [0,0]
-            physical_state.objects[a].offset = minus(
-                sprite_state.sprites[a].offset,
-                base_offset);
-            
-            for (var j = a + 1; j < prev_state.sprites.length; j++) {
-                    sprite_state.sprites[j].offset = plus(
-                        sprite_state.sprites[j - 1].offset, 
-                        physical_state.objects[j].offset);
-            }
-            var modified_sprite_state = clone(sprite_state);
-            var is_data_src = sprite_state._src == 'data';
-            if (!is_data_src) {
+        const prev_physical_state = clone(physical_state)
+        const sprite_state = yield;
+        physical_state.objects = map(sprite_state.sprites, function(sprite) {
+            return {'offset': round(scale(sprite.offset, 1/10), 1)}
+        })
+        if (sprite_state.hovered == -1) {
+            const sprites = map(zip(physical_state.objects,
+                sprite_state.sprites), function(pair) {
+                    const object = pair[0];
+                    const sprite = pair[1];
+                    return {
+                        'offset': scale(object.offset, 10),
+                        'radius': sprite.radius,
+                        'color': sprite.color
+                    }
+                }
+            );
+            if (sprite_state._src != 'data') {
                 window.setTimeout(function() {
-                    publish(hub0, mouse_topic, {'type': 'override', 'sprites': 
-                        modified_sprite_state.sprites})
+                    publish(hub0, mouse_topic, {
+                        'type': 'override',
+                        'sprites': sprites,
+                        sprites})
                 }, 0);
             }
         }
@@ -208,34 +189,6 @@ const hub0 = {
   },
   'producers': {
   }
-}
-function step(hub) {
-  forIn(hub.consumers, function(k, v, o) {
-    if (hub.producers[k]) {
-        var v = hub.producers[k].next()
-        hub.consumers[k].next(v);
-    }
-  });
-  forIn(hub.buffers, function(k, v, o) {
-    consumer = hub.consumers.shift();
-    hub.consumers.push(consumer);
-    consumer.next(v);
-  });
-}
-function register_consumer(hub, topic, consumer) {
-  hub.consumers[topic] = consumer;
-  step(hub);
-}
-function register_producer(hub, producer, topics) {
-  hub.consumers[topic] = nonsumer
-  step(hub);
-}
-function publish(hub, topic, v) {
-    if (hub.consumers[topic]) {
-        window.setTimeout(function() {
-            hub.consumers[topic].next(v);
-        },0);
-    }
 }
 function init() {
     const canvas = document.getElementById('canvas');

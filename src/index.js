@@ -22,43 +22,30 @@ function permute_indices() {
 }
  
 
-function draw(state, color, idx, commands_callback) {
-  const used_idx = state['debug'] ? state.debug_mapping.f[idx] : idx + 1
+function draw(config, color, idx, commands_callback) {
+  const used_idx = config.debug ? config.debug_mapping.f[idx] : idx + 1
   const trap_color= 'rgb(' + 
                  Math.floor(used_idx / (256 * 256)) + ', ' +
                  Math.floor(used_idx / (256)) % 256 + ', ' +
                  used_idx % 256  + ')'
-  commands_callback(state['mouse_trap_ctx'], trap_color)
-  commands_callback(state['ctx'], color)
+  commands_callback(config.mouse_trap_ctx, trap_color)
+  commands_callback(config.ctx, color)
 
 }
 
-function render(sprite_state) {
-    const mouse_trap_ctx = sprite_state['mouse_trap_ctx'];
-    const ctx = sprite_state['ctx'];
-    ctx.clearRect(0,0,600,600);
-    mouse_trap_ctx.clearRect(0,0,600,600);
-    forEach(sprite_state.sprites, function(c, j) {
-        draw(sprite_state, c.color, j, function(ctx, color) {
+function render(config, sprites) {
+    config.ctx.clearRect(0,0,600,600);
+    config.mouse_trap_ctx.clearRect(0,0,600,600);
+    forEach(sprites, function(c, j) {
+        draw(config, c.color, j, function(ctx, color) {
             ctx.beginPath();
             ctx.arc(c.offset[0], c.offset[1], c.radius, 0, 2 * Math.PI);
             ctx.fillStyle= color
             ctx.fill();
         });
     });
-
-    forEach(sprite_state.edges, function(e) {
-        var f = sprite_state.sprites[e[0]].offset;
-        var t = sprite_state.sprites[e[1]].offset;
-        ctx.lineWidth = 1;
-        ctx.strokeStyle= 'black';
-        ctx.beginPath();
-        ctx.moveTo(f[0], f[1]);
-        ctx.lineTo(t[0], t[1]);
-        ctx.stroke();
-    });
 }
-function* _mouse_processor(initial_state, hub, output_channel) {
+function* _mouse_processor(config, initial_state, hub, output_channel) {
 
   var sprite_state = clone(initial_state);
   var c = 0;
@@ -73,13 +60,12 @@ function* _mouse_processor(initial_state, hub, output_channel) {
       switch (evt.type) {
         case 'override':
             sprite_state.sprites = evt.sprites;
-            if (sprite_state.hovered != -1 && sprite_state.sprites[sprite_state.hovered]) {
+            if (sprite_state.dragged != -1 && sprite_state.sprites[sprite_state.dragged]) {
                 sprite_state._src = 'data';
-    //sprite_chosen_at = new_loc + chosen_at - mouse_loc
-                sprite_state.sprite_chosen_at = minus(plus(
-                            sprite_state.sprites[sprite_state.hovered].offset,
-                            prev_state.chosen_at),
-                            prev_state.mouse_loc);                          
+                // sprite_state.sprite_chosen_at = minus(plus(
+                //             sprite_state.sprites[sprite_state.dragged].offset,
+                //             prev_state.chosen_at),
+                //             prev_state.mouse_loc);                          
                 publish(hub, output_channel, sprite_state);
             }
             break;
@@ -96,28 +82,29 @@ function* _mouse_processor(initial_state, hub, output_channel) {
             publish(hub, output_channel, sprite_state);
             break;
         }
-        if (prev_state.hovered == -1) {
-            const image_data =  sprite_state['mouse_trap_ctx']
+        if (prev_state.dragged == -1) {
+            const image_data =  config.mouse_trap_ctx
                 .getImageData(evt.offsetX, evt.offsetY, 1, 1)
-            const hovered_data = image_data.data;
-        const hovered_unmapped = 
-                hovered_data[0] * 256 * 256 + 
-                hovered_data[1] * 256 + 
-                hovered_data[2];
-            var hovered = prev_state['debug'] ? 
-                prev_state.debug_mapping.b[hovered_unmapped] : 
-                hovered_unmapped;
-            if (hovered > -1) {
-                sprite_state.hovered = hovered;
+            const dragged_data = image_data.data;
+        const dragged_unmapped = 
+                dragged_data[0] * 256 * 256 + 
+                dragged_data[1] * 256 + 
+                dragged_data[2];
+            var dragged = config.debug ? 
+                config.debug_mapping.b[dragged_unmapped] : 
+                dragged_unmapped;
+            if (dragged > -1) {
+                sprite_state.dragged = dragged;
                 sprite_state.chosen_at = [evt.offsetX, evt.offsetY];
-                sprite_state.sprite_chosen_at = sprite_state.sprites[hovered].offset;
+                sprite_state.dragged_sprite_offset = sprite_state.sprites[dragged].offset;
+                sprite_state.sprite_chosen_at = sprite_state.sprites[dragged].offset;
             }
             break;
         }
         case 'mousemove':
 
-            if (prev_state.hovered != -1) {        
-                const sprite_loc = prev_state.sprites[prev_state.hovered].offset
+            if (prev_state.dragged != -1) {        
+                const sprite_loc = prev_state.sprites[prev_state.dragged].offset
                 const mouse_loc = [evt.offsetX, evt.offsetY]
                 //new_loc = mouse_loc + sprite_chosen_at - chosen_at
                 //sprite_chosen_at = new_loc + chosen_at - mouse_loc
@@ -125,21 +112,23 @@ function* _mouse_processor(initial_state, hub, output_channel) {
                         prev_state.sprite_chosen_at, // S0
                         prev_state.chosen_at), // M0
                         mouse_loc);
-                sprite_state.sprites[sprite_state.hovered].offset = new_loc;        
-                sprite_state.last_modified = sprite_state.hovered;
+                sprite_state.dragged_sprite_offset = new_loc;        
+                sprite_state.last_modified = sprite_state.dragged;
                 sprite_state.mouse_loc = mouse_loc;
                 publish(hub, output_channel, sprite_state);
             break;
             }
         case 'mouseup':
-            sprite_state.last_modified = sprite_state.hovered;
-            sprite_state.hovered = -1;
-            sprite_state.chosen_at = [];
+            if (sprite_state.dragged != -1) {
+                sprite_state.sprites[sprite_state.dragged].offset =
+                    sprite_state.dragged_sprite_offset;
+            }
+            sprite_state.dragged = -1;
         default:
         publish(hub, output_channel, sprite_state);
         break;
       }
-      render(sprite_state);
+      render(config, sprite_state.sprites);
     }
 }
 function* _data_processor(hub, mouse_topic) {
@@ -150,19 +139,26 @@ function* _data_processor(hub, mouse_topic) {
     while (true) {
         const prev_physical_state = clone(physical_state)
         const sprite_state = yield;
-        physical_state.objects = map(sprite_state.sprites, function(sprite) {
-            return {'offset': round(scale(sprite.offset, 1/10), 1)}
+        physical_state.objects = map(sprite_state.sprites, function(sprite, j) {
+            if (j == sprite_state.dragged) {
+                return {'offset': round(scale(sprite_state.dragged_sprite_offset, 1/40), 1)}
+            } else {
+                return {'offset': round(scale(sprite.offset, 1/40), 1)}
+            }
         })
-        if (sprite_state.hovered == -1) {
+        if (sprite_state.dragged != -1) {
             const sprites = map(zip(physical_state.objects,
-                sprite_state.sprites), function(pair) {
-                    const object = pair[0];
-                    const sprite = pair[1];
-                    return {
-                        'offset': scale(object.offset, 10),
+                sprite_state.sprites), function(obj_sprite_pair, j) {
+                    const object = obj_sprite_pair[0];
+                    const sprite = obj_sprite_pair[1];
+                    var r = {
+                        'offset': 
+
+                        object ? scale(object.offset, 40) : sprite.offset,
                         'radius': sprite.radius,
                         'color': sprite.color
-                    }
+                    }                    
+                    return r;
                 }
             );
             if (sprite_state._src != 'data') {
@@ -191,33 +187,29 @@ const hub0 = {
   }
 }
 function init() {
-    const canvas = document.getElementById('canvas');
-    const mouse_trap = document.getElementById('mouse_trap');
-    const ctx = canvas.getContext('2d');
-    const mouse_trap_ctx = mouse_trap.getContext('2d');
     const colors = ['red', 'violet', 'blue',  'white', 'green']
+    const config = {
+      'debug': true,
+      'debug_mapping': permute_indices(),
+      'mouse_trap_ctx': document.getElementById('mouse_trap').getContext('2d'),
+      'ctx': document.getElementById('canvas').getContext('2d')
+    }
     const initial_sprite_state = {
-      'hovered': -1,
+      'dragged': -1,
       'sprites': map(range(0,5), ((x,j)=>({
         'offset': [x*50+100,x*50+100],
         'radius': 10,
         'color': colors[j]}))),
-      'debug': true,
-      'debug_mapping': permute_indices(),
       'edges': [],
-      '_gen': 0,
-      'mouse_trap_ctx': document.getElementById('mouse_trap').getContext('2d'),
-      'ctx': document.getElementById('canvas').getContext('2d')
     }
-    const mouse_processor = _mouse_processor(initial_sprite_state, hub0, 'sprite_output');
+    const mouse_processor = _mouse_processor(config, initial_sprite_state, hub0, 'sprite_output');
     const data_processor = _data_processor(hub0, 'sprite_input');
-    const renderer = _renderer();
     forEach(['mousedown', 'mousemove', 'mouseup'], function(name) {
         document.addEventListener(name, function(evt) {
             publish(hub0, 'sprite_input', evt)
         })
     });
-    render(initial_sprite_state);
+    render(config, initial_sprite_state.sprites);
     register_consumer(hub0, 'sprite_input', mouse_processor);
     register_consumer(hub0, 'sprite_output', data_processor);
 }

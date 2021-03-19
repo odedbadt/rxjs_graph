@@ -115,6 +115,7 @@ function* _mouse_processor(config, initial_state, hub, output_channel, render) {
         publish(hub, output_channel, sprite_state);
         break;
       }
+      render(config, sprite_state.sprites);
     }
 }
 export function init_mouse(config, initial_sprite_state, elem, hub, render) {

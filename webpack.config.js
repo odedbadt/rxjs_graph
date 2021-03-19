@@ -4,6 +4,7 @@ module.exports = {
   'entry': {
     'index': './src/index.js',
     'rxjs': './src/rxjs.js',
+    'mouse': './src/mouse.js',
     'csp': './src/csp.js',
     'vector': './src/vector.js',
   },

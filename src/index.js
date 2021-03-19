@@ -5,8 +5,9 @@ import { collectionData } from 'rxfire/firestore';
 // import { scan, map as rxMap, mergeMap, filter as rxFilter } from 'rxjs/operators';
 import { partial, defaults, forEach, map, random, findIndex, range, set, clone, forIn, zip } from 'lodash-es';
 //import { collectionData } from 'rxfire/firestore';
-import {publish, register_consumer} from './csp.js'
+import {publish, register_consumer, init_hub} from './csp.js'
 import {plus, minus, round, scale} from './vector.js'
+import {register_mouse_consumer, init_mouse, MOUSE_INPUT, MOUSE_OUTPUT} from './mouse.js'
 function permute_indices() {
     const forward = new Map();
     const backward = new Map();
@@ -45,92 +46,7 @@ function render(config, sprites) {
         });
     });
 }
-function* _mouse_processor(config, initial_state, hub, output_channel) {
 
-  var sprite_state = clone(initial_state);
-  var c = 0;
-  while (true) {
-      var prev_state = sprite_state;
-      sprite_state = clone(sprite_state);
-      sprite_state._src = 'sprite_input'
-      var evt = yield;      
-      if (evt._src) {
-          console.log('EVT', evt)
-      }
-      switch (evt.type) {
-        case 'override':
-            sprite_state.sprites = evt.sprites;
-            if (sprite_state.dragged != -1 && sprite_state.sprites[sprite_state.dragged]) {
-                sprite_state._src = 'data';
-                // sprite_state.sprite_chosen_at = minus(plus(
-                //             sprite_state.sprites[sprite_state.dragged].offset,
-                //             prev_state.chosen_at),
-                //             prev_state.mouse_loc);                          
-                publish(hub, output_channel, sprite_state);
-            }
-            break;
-        case 'mousedown':
-        if (evt.shiftKey) {
-            if (document.getElementById('canvas').style['display'] == 'none') {
-                document.getElementById('canvas').style['display'] = 'block';
-                document.getElementById('mouse_trap').style['display'] = 'none';
-            } else {
-                document.getElementById('canvas').style['display'] = 'none';
-                document.getElementById('mouse_trap').style['display'] = 'block';
-
-            }
-            publish(hub, output_channel, sprite_state);
-            break;
-        }
-        if (prev_state.dragged == -1) {
-            const image_data =  config.mouse_trap_ctx
-                .getImageData(evt.offsetX, evt.offsetY, 1, 1)
-            const dragged_data = image_data.data;
-        const dragged_unmapped = 
-                dragged_data[0] * 256 * 256 + 
-                dragged_data[1] * 256 + 
-                dragged_data[2];
-            var dragged = config.debug ? 
-                config.debug_mapping.b[dragged_unmapped] : 
-                dragged_unmapped;
-            if (dragged > -1) {
-                sprite_state.dragged = dragged;
-                sprite_state.chosen_at = [evt.offsetX, evt.offsetY];
-                sprite_state.dragged_sprite_offset = sprite_state.sprites[dragged].offset;
-                sprite_state.sprite_chosen_at = sprite_state.sprites[dragged].offset;
-            }
-            break;
-        }
-        case 'mousemove':
-
-            if (prev_state.dragged != -1) {        
-                const sprite_loc = prev_state.sprites[prev_state.dragged].offset
-                const mouse_loc = [evt.offsetX, evt.offsetY]
-                //new_loc = mouse_loc + sprite_chosen_at - chosen_at
-                //sprite_chosen_at = new_loc + chosen_at - mouse_loc
-                const new_loc = plus(minus(
-                        prev_state.sprite_chosen_at, // S0
-                        prev_state.chosen_at), // M0
-                        mouse_loc);
-                sprite_state.dragged_sprite_offset = new_loc;        
-                sprite_state.last_modified = sprite_state.dragged;
-                sprite_state.mouse_loc = mouse_loc;
-                publish(hub, output_channel, sprite_state);
-            break;
-            }
-        case 'mouseup':
-            if (sprite_state.dragged != -1) {
-                sprite_state.sprites[sprite_state.dragged].offset =
-                    sprite_state.dragged_sprite_offset;
-            }
-            sprite_state.dragged = -1;
-        default:
-        publish(hub, output_channel, sprite_state);
-        break;
-      }
-      render(config, sprite_state.sprites);
-    }
-}
 function* _data_processor(hub, mouse_topic) {
     var physical_state = {
         'objects': [
@@ -163,7 +79,7 @@ function* _data_processor(hub, mouse_topic) {
             );
             if (sprite_state._src != 'data') {
                 window.setTimeout(function() {
-                    publish(hub0, mouse_topic, {
+                    publish(hub, mouse_topic, {
                         'type': 'override',
                         'sprites': sprites,
                         sprites})
@@ -177,14 +93,6 @@ function* _renderer() {
         var sprite_state = yield;
         render(sprite_state);
     }
-}
-const hub0 = {
-  'buffers': {
-  },
-  'consumers': {
-  },
-  'producers': {
-  }
 }
 function init() {
     const colors = ['red', 'violet', 'blue',  'white', 'green']
@@ -202,24 +110,12 @@ function init() {
         'color': colors[j]}))),
       'edges': [],
     }
-    const mouse_processor = _mouse_processor(config, initial_sprite_state, hub0, 'sprite_output');
-    const data_processor = _data_processor(hub0, 'sprite_input');
-    forEach(['mousedown', 'mousemove', 'mouseup'], function(name) {
-        document.addEventListener(name, function(evt) {
-            publish(hub0, 'sprite_input', evt)
-        })
-    });
+
+    const hub = init_hub();
+    const data_processor = _data_processor(hub, MOUSE_INPUT);
+    init_mouse(config, initial_sprite_state, document, hub, render);
+    register_mouse_consumer(hub, data_processor);
     render(config, initial_sprite_state.sprites);
-    register_consumer(hub0, 'sprite_input', mouse_processor);
-    register_consumer(hub0, 'sprite_output', data_processor);
 }
-var a = {}
-function* g() {
-    yield
-    a._g.next()
-}
-const _g = g()
-a._g = _g
-_g.next();
 
 init();

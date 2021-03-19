@@ -27,4 +27,15 @@ export function publish(hub, topic, v) {
         },0);
     }
 }
+export function init_hub() {
+    return {
+      'buffers': {
+      },
+      'consumers': {
+      },
+      'producers': {
+      }
+    }
+}
+
 

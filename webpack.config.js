@@ -1,21 +1,33 @@
 
 var webpack = require('webpack');
+
 module.exports = {
-  'entry': {
-    'index': './src/index.js',
-    'rxjs': './src/rxjs.js',
-    'mouse': './src/mouse.js',
-    'csp': './src/csp.js',
-    'vector': './src/vector.js',
+  entry: {
+    vector: './src/vector.ts',
+    csp: './src/csp.ts',
+    index: './src/index.ts',
+    sprites: './src/sprites.ts'
   },
-  'watch':true,
-  'devtool': "eval-source-map",
-   output: {
+  module: {
+    rules: [
+      {
+        test: /.*\.tsx?$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
+    ],
+  },  
+  resolve: {
+    extensions: ['.ts'],
+  },
+  watch: true,
+  devtool: "eval-source-map",
+  output: {
     filename: '[name].js',
-    path: __dirname + '/public'
+    path: __dirname + '/dist'
   },
-  'mode': 'development',
-  'optimization': {
-    'minimize': false
+  mode: 'development',
+  optimization: {
+    minimize: false
     }
 };

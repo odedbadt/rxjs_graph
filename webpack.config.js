@@ -5,9 +5,17 @@ module.exports = {
   entry: {
     vector: './src/vector.ts',
     csp: './src/csp.ts',
-    index: './src/index.ts',
-    sprites: './src/sprites.ts'
+    index: {
+        import: './src/index.ts',
+    },
+    sprites:  {
+        import: './src/sprites.ts',
+    },
+    console: {
+        import: './src/console.ts',
+    }
   },
+  target: 'es8',
   module: {
     rules: [
       {
@@ -16,12 +24,15 @@ module.exports = {
         exclude: /node_modules/,
       },
     ],
-  },  
+  },
+  externals: {
+    lodash: ['https://cdn.jsdelivr.net/npm/lodash@4.17.19/lodash.min.js', '_'],
+  }, 
   resolve: {
-    extensions: ['.ts'],
+    extensions: ['.tsx', '.ts', '.js'],
   },
   watch: true,
-  devtool: "eval-source-map",
+  devtool: "source-map",
   output: {
     filename: '[name].js',
     path: __dirname + '/dist'

@@ -7,6 +7,7 @@
     "firebase": "^8.1.2",
     "lodash-es": "^4.17.15",
     "rxfire": "^4.0.0",
+    "webpack": "^5.30.0",
     "webpack-cli": "^4.2.0"
   },
   "devDependencies": {

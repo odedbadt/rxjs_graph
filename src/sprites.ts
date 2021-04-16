@@ -154,7 +154,7 @@ async function _mouse_processor(config:MouseConfig,
         break;
       }
       console.log(mouse_state.dragged, mouse_state._src);
-      //publish_value(hub, output_topic, mouse_state);
+      publish_value(hub, output_topic, mouse_state);
       render(config, mouse_state.sprites);
     }
 }

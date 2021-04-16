@@ -20,5 +20,7 @@ async function consumer(TTL:number, pace:number) {
     console.log(TTL, 'consumed ' + v);
     setTimeout(partial(consumer, TTL - 1, pace), pace)
 }
+publish_value(hub, 'T', 'B1')
+publish_value(hub, 'T', 'B2')
 setTimeout(partial(producer, 10, 500), 500);
 setTimeout(partial(consumer, 30, 2000), 2000);

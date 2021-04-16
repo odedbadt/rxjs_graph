@@ -15,10 +15,10 @@ async function consumer(TTL:number, pace:number) {
     if (TTL < 0) {
         return
     }
-    console.log(TTL, 'consuming', TTL);
+    console.log(TTL, 'consuming...');
     var v = await consume_value(hub, 'T');
     console.log(TTL, 'consumed ' + v);
-    setTimeout(partial(producer, TTL - 1, pace), pace)
+    setTimeout(partial(consumer, TTL - 1, pace), pace)
 }
-setTimeout(partial(producer, 100, 1000), 1000);
-setTimeout(partial(consumer, 100, 3000), 3000);
+setTimeout(partial(producer, 10, 500), 500);
+setTimeout(partial(consumer, 30, 2000), 2000);

@@ -4,25 +4,6 @@ import {Hub} from './csp'
 import {Vector, plus, minus, round, scale} from './vector'
 import {IndicesPermutation, MouseConfig, MouseState, Sprite, init_mouse, 
     permute_indices, MOUSE_INPUT, MOUSE_OUTPUT, render} from './sprites'
-import firebase from "firebase/app";
-import "firebase/auth";
-import "firebase/firestore";
-const firebaseConfig = {
-  apiKey: "AIzaSyCBUZBYv1S8zQ_mnyJ6sqv5kA2FGCV6FZ0",
-  authDomain: "okku-295708.firebaseapp.com",
-  databaseURL: "https://okku-295708.firebaseio.com",
-  projectId: "okku-295708",
-  storageBucket: "okku-295708.appspot.com",
-  messagingSenderId: "811021926948",
-  appId: "1:811021926948:web:9891f2ba52b50d432a8eb1",
-  measurementId: "G-YDVPJ431XV"
-};
-firebase.initializeApp(firebaseConfig);
-var db = firebase.firestore();
-
-if (location.hostname === "localhost") {
-  db.useEmulator("localhost", 8080);
-}
 
 interface PhysicalObject     {
     offset: Vector;
@@ -44,9 +25,10 @@ async function _data_processor(hub:Hub, mouse_input:string, mouse_output:string)
             function(sprite:Sprite, j:number) {
             if (j == sprite_state.dragged) {
                 return {
-                    'offset': round(scale(sprite_state.dragged_sprite_offset, 1/4), 1)}
+
+                    'offset': round(scale(sprite_state.dragged_sprite_offset, 1/40), 1)}
             } else {
-                return {'offset': round(scale(sprite.properties.offset, 1/4), 1)}
+                return {'offset': round(scale(sprite.properties.offset, 1/40), 1)}
             }
         })
         if (sprite_state.dragged != -1) {
@@ -57,7 +39,7 @@ async function _data_processor(hub:Hub, mouse_input:string, mouse_output:string)
                     const sprite = obj_sprite_pair[1];
                     const result:Sprite = {
                         'color': sprite.color,
-                        'offset': object ? scale(object.offset, 4) : sprite.offset,
+                        'offset': object ? scale(object.offset, 40) : sprite.offset,
                         'shape': sprite.shape,
                         'properties': {
                             'radius': sprite.properties.radius
@@ -66,9 +48,9 @@ async function _data_processor(hub:Hub, mouse_input:string, mouse_output:string)
                     return [j, result];
                 }
             ));
-            if (sprite_state._src != 'upstream') {
+            if (sprite_state.type != 'upstream') {
                 hub.publish_value(mouse_input, {
-                    'type': 'data',
+                    'type': 'upstream',
                     '_src': 'upstream',
                     'sprites': sprites});
             }
@@ -76,6 +58,7 @@ async function _data_processor(hub:Hub, mouse_input:string, mouse_output:string)
     }
 }
 function init() {
+    console.log('I');
     const colors = ['red', 'violet', 'blue',  'white', 'green']
     const config:MouseConfig = {
       'debug': true,
@@ -100,7 +83,7 @@ function init() {
     const hub:Hub = new Hub();
     const data_processor = partial(_data_processor, hub, MOUSE_INPUT, MOUSE_OUTPUT);
     setTimeout(data_processor, 0);
-    /* Init mouse event listeners to listen on "document"*/
+
     init_mouse(config, initial_sprite_state, document, hub, render);
 }
 window.addEventListener('load', init)

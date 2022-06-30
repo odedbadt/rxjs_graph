@@ -1,54 +1,48 @@
 import {forIn, forEach} from 'lodash-es';
+import {CyclicBuffer} from './struct'
 
-
-export interface Hub {
-  'consumers': Map<string, Promise<any> >;
-  'producers': Map<string, Promise<void> >;
-  'consumer_called_callbacks': Map<string, Function>;
-  'producer_called_callbacks': Map<string, Function>;
-  'buffers': Map<string, Array<any>>;
-}
-
-export function consume_value(hub:Hub, topic:string):Promise<any> {    
-    if (hub.buffers.has(topic) && hub.buffers.get(topic).length > 0) {
-        return hub.buffers.get(topic).pop();
+export class Hub {
+    consumer_called_callbacks: Map<string, Function>;
+    producer_called_callbacks: Map<string, Function>;
+    buffers: Map<string, CyclicBuffer<any>>
+    constructor() {
+         this.consumer_called_callbacks = new Map<string, Function>();
+         this.producer_called_callbacks = new Map<string, Function>();
+         this.buffers = new Map<string, CyclicBuffer<any>>();
     }
-    if (hub.consumer_called_callbacks.has(topic)) {
-        const consumer_called_callback = hub.consumer_called_callbacks.get(topic);
-        consumer_called_callback();
-    }
-
-    const consumer_promise = new Promise(function(resolve) {
-        hub.producer_called_callbacks.set(topic, function(v:any) {
-            resolve(v);
-        })
-    });
-    return consumer_promise;
-}
-
-export function publish_value(hub:Hub, topic:string, value:any):Promise<void> {
-    if (hub.producer_called_callbacks.has(topic)) {
-        const producer_called_callback = hub.producer_called_callbacks.get(topic);
-        producer_called_callback(value);
-    } else {
-        if (!hub.buffers.has(topic)) {
-            hub.buffers.set(topic, new Array<any>());
+    consume_value(topic:string):Promise<any> {    
+        const that = this;
+        if (this.buffers.has(topic) && !this.buffers.get(topic).is_empty()) {
+            return this.buffers.get(topic).pop();
         }
-        hub.buffers.get(topic).push(value)
+        if (this.consumer_called_callbacks.has(topic)) {
+            const consumer_called_callback = this.consumer_called_callbacks.get(topic);
+            consumer_called_callback();
+        }
+
+        const consumer_promise = new Promise(function(resolve) {
+            that.producer_called_callbacks.set(topic, function(v:any) {
+                resolve(v);
+            })
+        });
+        return consumer_promise;
     }
-    const producer_promise:Promise<void> = new Promise<void>(function(resolve) {
-        hub.consumer_called_callbacks.set(topic, resolve);
-    });
-    return producer_promise;
-}
+    publish_value(topic:string, value:any):Promise<void> {
+        const that = this;
+        console.log('B');
 
-export function init_hub() {
-    return {
-        'consumers': new Map<string, Promise<any>>(),
-        'producers': new Map<string, Promise<any>>(),
-         'consumer_called_callbacks': new Map<string, Function>(),
-         'producer_called_callbacks': new Map<string, Function>(),
-         'buffers': new Map<string, Array<any>>()
-
+        if (this.producer_called_callbacks.has(topic)) {
+            const producer_called_callback = this.producer_called_callbacks.get(topic);
+            producer_called_callback(value);
+        } else {
+            if (!this.buffers.has(topic)) {
+                this.buffers.set(topic, new CyclicBuffer<any>(1000));
+            }
+            this.buffers.get(topic).push(value)
+        }
+        const producer_promise:Promise<void> = new Promise<void>(function(resolve) {
+            that.consumer_called_callbacks.set(topic, resolve);
+        });
+        return producer_promise;
     }
 }

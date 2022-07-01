@@ -5,15 +5,11 @@ module.exports = {
   entry: {
     vector: './src/vector.ts',
     csp: './src/csp.ts',
-    index: {
-        import: './src/index.ts',
-    },
-    sprites:  {
-        import: './src/sprites.ts',
-    },
-    console: {
-        import: './src/console.ts',
-    }
+    piccolino: './src/piccolino.ts',
+    index: './src/index.ts',
+    sprites: './src/sprites.ts',
+    console: './src/console.ts',
+    struct: './src/struct.ts',
   },
   target: 'es8',
   module: {
@@ -21,7 +17,7 @@ module.exports = {
       {
         test: /.*\.tsx?$/,
         use: 'ts-loader',
-        exclude: /node_modules/,
+        exclude: ['/node_modules/','/dist']
       },
     ],
   },
@@ -29,13 +25,13 @@ module.exports = {
     lodash: ['https://cdn.jsdelivr.net/npm/lodash@4.17.19/lodash.min.js', '_'],
   }, 
   resolve: {
-    extensions: ['.tsx', '.ts', '.js'],
+    extensions: ['.tsx', '.ts'],
   },
   watch: true,
   devtool: "source-map",
   output: {
     filename: '[name].js',
-    path: __dirname + '/dist'
+    path: __dirname + '/public/dist'
   },
   mode: 'development',
   optimization: {

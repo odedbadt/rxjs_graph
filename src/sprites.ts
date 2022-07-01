@@ -97,7 +97,8 @@ async function _mouse_processor(config:MouseConfig,
     input_topic:string, 
     output_topic:string, 
     render:Function):Promise<any> {
-
+  // Called with every mouse event
+  // 
   var mouse_state = clone(initial_state);
   var c = 0;
   while (true) {
@@ -106,6 +107,9 @@ async function _mouse_processor(config:MouseConfig,
       mouse_state = clone(mouse_state);
       mouse_state._src = 'user_input'
       const evt = await hub.consume_value(input_topic);
+      const rect = canvas.getBoundingClientRect()
+      const x = evt.clientX - rect.left
+      const y = evt.clientY - rect.top
       if (evt._src == 'upstream') {
           mouse_state._src = 'upstream';
       }
@@ -126,19 +130,24 @@ async function _mouse_processor(config:MouseConfig,
         }
         mouse_state.down_without_move = true;
         if (prev_state.dragged == -1) {
-            const image_data =  config.mouse_trap_ctx
-                .getImageData(evt.offsetX, evt.offsetY, 1, 1)
+            const image_data = config.mouse_trap_ctx
+                .getImageData(x, y, 1, 1)
             const dragged_data = image_data.data;
-        const dragged_unmapped = 
-                dragged_data[0] * 256 * 256 + 
-                dragged_data[1] * 256 + 
-                dragged_data[2];
+            const dragged_unmapped = 
+                    dragged_data[0] * 256 * 256 + 
+                    dragged_data[1] * 256 + 
+                    dragged_data[2];
+            console.log(config.debug_mapping)
             const dragged = config.debug ? 
                   config.debug_mapping.b.get(dragged_unmapped) : 
                   dragged_unmapped;
+            console.log(evt, 
+x, y,
+                dragged_data, dragged_unmapped, config.debug_mapping.b.get(dragged_unmapped), config.debug_mapping.f.get(dragged_unmapped))
             if (dragged > -1) {
+                console.log(config.debug_mapping.f.get(0), config.debug_mapping.f.get(1))
                 mouse_state.dragged = dragged;
-                mouse_state.chosen_at = [evt.offsetX, evt.offsetY];
+                mouse_state.chosen_at = [x, y];
                 mouse_state.dragged_sprite_offset = mouse_state.sprites.get(dragged).offset;
                 mouse_state.sprite_chosen_at = mouse_state.sprites.get(dragged).offset;
             }
@@ -148,7 +157,7 @@ async function _mouse_processor(config:MouseConfig,
             mouse_state.down_without_move = false
             if (prev_state.dragged != -1) {        
                 const sprite_loc = prev_state.sprites.get(prev_state.dragged).offset
-                const mouse_loc = [evt.offsetX, evt.offsetY] as Vector
+                const mouse_loc = [x, y] as Vector
                 //new_loc = mouse_loc + sprite_chosen_at - chosen_at
                 //sprite_chosen_at = new_loc + chosen_at - mouse_loc
                 const new_loc = plus(minus(
@@ -185,7 +194,9 @@ export function init_mouse(config:MouseConfig,
     initial_mouse_state:MouseState, 
     node:Node, hub:Hub, render:Function):void {
     console.log('IM');
-    forEach(['mousedown', 'mousemove', 'mouseup'], function(name:string) {
+
+    ['mousedown', 'mousemove', 'mouseup'].forEach(function(name:string) {
+        console.log('Adding event listener for ' + name);
         node.addEventListener(name, function(evt:MouseEvent) {
             setTimeout(bind(hub.publish_value, hub, MOUSE_INPUT, evt), 0)
         })

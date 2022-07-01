@@ -1,0 +1,5 @@
+cd ~/homework/okku
+
+python -m http.server
+and in another terminal:
+npx webpack

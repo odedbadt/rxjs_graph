@@ -29,7 +29,6 @@ export class Hub {
     }
     publish_value(topic:string, value:any):Promise<void> {
         const that = this;
-        console.log('B');
 
         if (this.producer_called_callbacks.has(topic)) {
             const producer_called_callback = this.producer_called_callbacks.get(topic);

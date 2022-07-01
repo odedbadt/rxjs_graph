@@ -93,15 +93,19 @@ function init() {
             'radius': 10
         },
         'color': colors[j]
-    }]))),
+    }])) ),
       'edges': [],
     }
 
     const hub:Hub = new Hub();
     const data_processor = partial(_data_processor, hub, MOUSE_INPUT, MOUSE_OUTPUT);
     setTimeout(data_processor, 0);
+    const initialConfig = (window as any); 
+    initialConfig.__INITIAL_CONFIG__ = config
     /* Init mouse event listeners to listen on "document"*/
     init_mouse(config, initial_sprite_state, document, hub, render);
+
+
 }
 window.addEventListener('load', init)
 

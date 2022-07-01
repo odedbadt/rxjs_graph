@@ -6,3 +6,5 @@ node_modules
 *.map
 *.LICENSE.txt
 *.LICENSE.txt
+public/dist
+*.log

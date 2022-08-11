@@ -75,35 +75,49 @@ async function _data_processor(hub:Hub, mouse_input:string, mouse_output:string)
         }
     }
 }
+
 function init() {
     const colors = ['red', 'violet', 'blue',  'white', 'green']
     const config:MouseConfig = {
       'debug': true,
       'debug_mapping': permute_indices(),
       'mouse_trap_ctx': (document.getElementById('mouse_trap') as HTMLCanvasElement).getContext('2d'),
+      'canvas': (document.getElementById('canvas') as HTMLCanvasElement),
       'ctx': (document.getElementById('canvas') as HTMLCanvasElement).getContext('2d')
     }
     const initial_sprite_state:MouseState = {
       'dragged': -1,
-      'sprites': new Map<number, Sprite>(map(range(0,5), 
-          ((x:number, j:number)=>[j, {
-        'shape': 'circle',
-        'offset': [x*50+100,x*50+100],
-        'properties': {            
-            'radius': 10
-        },
-        'color': colors[j]
-    }])) ),
+      'sprites': new Map<number, Sprite>(map(range(0,5),
+              ((x:number, j:number)=>[j, {
+            'shape': 'circle',
+            'offset': [x*50+100,x*50+100],
+            'properties': {
+                'radius': 10
+            },
+            'color': colors[j]
+        }])) ),
       'edges': [],
     }
-
+    const initial_mouse_state:MouseState = {
+      'dragged': -1,
+      'sprites': new Map<number, Sprite>(map(range(0,5),
+              ((x:number, j:number)=>[j, {
+            'shape': 'circle',
+            'offset': [x*50+100,x*50+100],
+            'properties': {
+                'radius': 10
+            },
+            'color': colors[j]
+        }])) ),
+      'edges': [],
+    }
     const hub:Hub = new Hub();
     const data_processor = partial(_data_processor, hub, MOUSE_INPUT, MOUSE_OUTPUT);
     setTimeout(data_processor, 0);
     const initialConfig = (window as any); 
     initialConfig.__INITIAL_CONFIG__ = config
     /* Init mouse event listeners to listen on "document"*/
-    init_mouse(config, initial_sprite_state, document, hub, render);
+    init_mouse(config, initial_mouse_state, document, hub, render);
 
 
 }

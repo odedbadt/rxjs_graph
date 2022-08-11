@@ -5,7 +5,6 @@ module.exports = {
   entry: {
     vector: './src/vector.ts',
     csp: './src/csp.ts',
-    piccolino: './src/piccolino.ts',
     index: './src/index.ts',
     sprites: './src/sprites.ts',
     console: './src/console.ts',

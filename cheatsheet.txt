@@ -3,3 +3,8 @@ cd ~/homework/okku
 python -m http.server
 and in another terminal:
 npx webpack
+
+
+
+to clear ssh cache and allow pushing:
+ssh-add -D

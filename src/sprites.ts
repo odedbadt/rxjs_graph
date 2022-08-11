@@ -1,5 +1,5 @@
 import {Hub} from './csp'
-import {partial, forIn, forEach, clone, range, random, bind} from 'lodash-es';
+import {partial, forIn, forEach, slice, clone, range, random, bind} from 'lodash-es';
 import {Vector, plus, minus, round, scale} from './vector'
 
 export const MOUSE_INPUT = 'MOUSE_INPUT';
@@ -15,6 +15,7 @@ export interface IndicesPermutation {
 export interface MouseConfig {
     debug: boolean;
     debug_mapping?: IndicesPermutation;
+    canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
     mouse_trap_ctx: CanvasRenderingContext2D
 }
@@ -25,6 +26,7 @@ export interface Sprite {
     offset: Vector,
     properties:any
 }
+
 
 export interface MouseState {
     dragged: number;
@@ -60,13 +62,30 @@ function _circle(shape_properties:any,
             ctx.beginPath();
             ctx.arc(offset[0], offset[1], 
                     shape_properties.radius, 0, 2 * Math.PI);
-            ctx.fillStyle = color;
+        };
+function _poly(shape_properties:any,
+               ctx:CanvasRenderingContext2D,
+               offset:Vector,
+               color:string):void {
+            if (shape_properties.vertices.length == 0) {
+                return
+            }
+            ctx.beginPath();
+            ctx.moveTo(offset[0], offset[1]);
+            forEach(shape_properties, function(vertex:Vector) {
+                ctx.lineTo(vertex[0], vertex[1]);
+            })
+            if (shape_properties.closed) {
+                ctx.lineTo(shape_properties.vertices[0], shape_properties.vertices[1]);
+            }
             ctx.fill();
         };
-
 const SHAPES:Map<string,Function> = new Map<string,Function>([
     ['rect', _rect],
-    ['circle', _circle]])
+    ['circle', _circle],
+    ['poly', _poly]
+
+    ])
 
 function _draw(config:MouseConfig, offset:Vector, color:string, 
               idx:number, commands_callback:Function):void {
@@ -75,20 +94,33 @@ function _draw(config:MouseConfig, offset:Vector, color:string,
                  Math.floor(used_idx / (256 * 256)) + ', ' +
                  Math.floor(used_idx / (256)) % 256 + ', ' +
                  used_idx % 256  + ')'
+  config.mouse_trap_ctx.fillStyle = trap_color;
+  config.mouse_trap_ctx.strokeStyle = trap_color;
   commands_callback(config.mouse_trap_ctx, offset, trap_color)
+  config.mouse_trap_ctx.fill();
+  config.mouse_trap_ctx.stroke();
+
+  config.ctx.fillStyle = color;
+  config.ctx.strokeStyle = color;
   commands_callback(config.ctx, offset, color)
+  config.ctx.fill();
+  config.ctx.stroke();
+
 }
 
-export function render(config:MouseConfig, sprites:Array<Sprite>):void {
+export function render(config:MouseConfig, sprites:Map<number, Sprite>):void {
     config.ctx.clearRect(0,0,600,600);
     config.mouse_trap_ctx.clearRect(0,0,600,600);
-    sprites.forEach(function(sprite:Sprite, j:number) {
+    // iterate by key order
+    var zindices = Array.from(sprites.keys());
+    zindices.sort();
+    sprites.forEach(function(sprite:Sprite, sprite_id:number) {
         if (!SHAPES.has(sprite.shape)) {
             throw new Error('No such shape: ' + sprite.shape)
         }
         const shape_callback = partial(
             SHAPES.get(sprite.shape), sprite.properties);
-        _draw(config, sprite.offset, sprite.color, j, shape_callback)
+        _draw(config, sprite.offset, sprite.color, sprite_id, shape_callback)
     });
 }
 
@@ -107,7 +139,7 @@ async function _mouse_processor(config:MouseConfig,
       mouse_state = clone(mouse_state);
       mouse_state._src = 'user_input'
       const evt = await hub.consume_value(input_topic);
-      const rect = canvas.getBoundingClientRect()
+      const rect = config.canvas.getBoundingClientRect()
       const x = evt.clientX - rect.left
       const y = evt.clientY - rect.top
       if (evt._src == 'upstream') {

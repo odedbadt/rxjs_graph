@@ -1,28 +1,8 @@
-import { collectionData } from 'rxfire/firestore';
 import { partial, forEach, map, random, findIndex, range, set, clone, forIn, zip } from 'lodash-es';
-import {Hub} from './csp'
+import {PubSub} from './pubsub'
 import {Vector, plus, minus, round, scale} from './vector'
 import {IndicesPermutation, MouseConfig, MouseState, Sprite, init_mouse, 
     permute_indices, MOUSE_INPUT, MOUSE_OUTPUT, render} from './sprites'
-import firebase from "firebase/app";
-import "firebase/auth";
-import "firebase/firestore";
-const firebaseConfig = {
-  apiKey: "AIzaSyCBUZBYv1S8zQ_mnyJ6sqv5kA2FGCV6FZ0",
-  authDomain: "okku-295708.firebaseapp.com",
-  databaseURL: "https://okku-295708.firebaseio.com",
-  projectId: "okku-295708",
-  storageBucket: "okku-295708.appspot.com",
-  messagingSenderId: "811021926948",
-  appId: "1:811021926948:web:9891f2ba52b50d432a8eb1",
-  measurementId: "G-YDVPJ431XV"
-};
-firebase.initializeApp(firebaseConfig);
-var db = firebase.firestore();
-
-if (location.hostname === "localhost") {
-  db.useEmulator("localhost", 8080);
-}
 
 interface PhysicalObject     {
     offset: Vector;
@@ -32,14 +12,15 @@ interface PhysicalState {
 }
 
 
-async function _data_processor(hub:Hub, mouse_input:string, mouse_output:string):Promise<any> {
+async function _data_processor(pubsub:PubSub, mouse_input:string, mouse_output:string):Promise<any> {
     var physical_state:PhysicalState = {
         'objects': [
         ]
     }
+    var subscription = pubsub.subscribe(mouse_output);
     while (true) {
         const prev_physical_state = clone(physical_state)
-        const sprite_state = await hub.consume_value(mouse_output);
+        const sprite_state = await subscription.get();
         physical_state.objects = map(sprite_state.sprites, 
             function(sprite:Sprite, j:number) {
             if (j == sprite_state.dragged) {
@@ -67,7 +48,7 @@ async function _data_processor(hub:Hub, mouse_input:string, mouse_output:string)
                 }
             ));
             if (sprite_state._src != 'upstream') {
-                hub.publish_value(mouse_input, {
+                pubsub.publish_value(mouse_input, {
                     'type': 'data',
                     '_src': 'upstream',
                     'sprites': sprites});
@@ -97,6 +78,7 @@ function init() {
             'color': colors[j]
         }])) ),
       'edges': [],
+      'last_modified':null
     }
     const initial_mouse_state:MouseState = {
       'dragged': -1,
@@ -110,14 +92,15 @@ function init() {
             'color': colors[j]
         }])) ),
       'edges': [],
+      'last_modified':null
     }
-    const hub:Hub = new Hub();
-    const data_processor = partial(_data_processor, hub, MOUSE_INPUT, MOUSE_OUTPUT);
+    const pubsub:PubSub = new PubSub();
+    const data_processor = partial(_data_processor, pubsub, MOUSE_INPUT, MOUSE_OUTPUT);
     setTimeout(data_processor, 0);
     const initialConfig = (window as any); 
     initialConfig.__INITIAL_CONFIG__ = config
     /* Init mouse event listeners to listen on "document"*/
-    init_mouse(config, initial_mouse_state, document, hub, render);
+    init_mouse(config, initial_mouse_state, document, pubsub, render);
 
 
 }

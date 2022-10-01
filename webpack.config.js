@@ -4,10 +4,9 @@ var webpack = require('webpack');
 module.exports = {
   entry: {
     vector: './src/vector.ts',
-    csp: './src/csp.ts',
+    pubsub: './src/pubsub.ts',
     index: './src/index.ts',
     sprites: './src/sprites.ts',
-    console: './src/console.ts',
     struct: './src/struct.ts',
   },
   target: 'es8',
@@ -16,7 +15,7 @@ module.exports = {
       {
         test: /.*\.tsx?$/,
         use: 'ts-loader',
-        exclude: ['/node_modules/','/dist']
+        exclude: ['/node_modules/','/dist', '/node_modules']
       },
     ],
   },
@@ -33,6 +32,7 @@ module.exports = {
     path: __dirname + '/public/dist'
   },
   mode: 'development',
+  target: 'web',
   optimization: {
     minimize: false
     }

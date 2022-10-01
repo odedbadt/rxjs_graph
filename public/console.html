@@ -3,6 +3,39 @@
 <head>
 </head>
   <body>
-    <script src="../dist/console.js"></script>
+    <div>
+    <script src="dist/console.js"></script>
+    <script>
+function bench(n) {
+var ts = new Array(1000);
+var bg1 = 12345678n;
+var bg2 = 167865432n;
+var bg3 = bg1;
+var t0 = Date.now();
+for (var i = 0; i < (n*1000); ++i) {
+    bg3 = (bg3& bg2);
+    if (i % n ==0) {
+        ts.push(Date.now()-t0)
+      console.log(2);
+    }
+
+}
+var tsn = new Array(1000);
+t0 = Date.now()
+var num1 = 12345678;
+var num2 = 167865432;
+var num3 = num1;
+for (var i = 0; i < (n*1000); ++i) {
+    num3 = (num3 & num2);
+    if (i % n == 0) {
+        tsn.push(Date.now()-t0)
+    }
+
+}
+return [ts, tsn];
+}
+</script>
+
+    </div>
   </body>
 </html>

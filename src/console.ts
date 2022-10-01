@@ -1,43 +1,41 @@
-import { collectionData } from 'rxfire/firestore';
 import { partial, forEach, map, random, findIndex, range, set, clone, forIn, zip } from 'lodash-es';
-import {Hub} from './csp'
+import {PubSub, Subscription} from './pubsub'
 import {CyclicBuffer} from './struct'
 
 
-function test_csp() {
-    const hub = new Hub();
+function test_pubsub() {
+    const pubsub = new PubSub();
     async function producer(TTL:number, pace:number) {
         if (TTL < 0) {
             return
         }
         console.log(TTL, 'publishing ' + TTL);
-        await hub.publish_value('T', TTL);
+        pubsub.publish_value('T', TTL);
         console.log(TTL, 'published');
         setTimeout(partial(producer, TTL - 1, pace), pace)
     }
-    async function consumer(TTL:number, pace:number) {
+    async function consumer(subscription:Subscription, TTL:number, pace:number, log:string) {
+        console.log(log, 'Consuming from', subscription, TTL, pace)
         if (TTL < 0) {
             return
         }
-        console.log(TTL, 'consuming...');
-        var v = await hub.consume_value('T');
-        console.log(TTL, 'consumed ' + v);
-        setTimeout(partial(consumer, TTL - 1, pace), pace)
+        var v = await subscription.get();
+        console.log(log, TTL, 'consumed ', v);
+        setTimeout(partial(consumer, subscription, TTL - 1, pace, log ), pace)
     }
-    hub.publish_value('T', 'B1')
-    hub.publish_value('T', 'B2')
-    setTimeout(partial(producer, 10, 500), 500);
-    setTimeout(partial(consumer, 30, 2000), 2000);
+    pubsub.publish_value('T', 'B1')
+    pubsub.publish_value('T', 'B2')
+    setTimeout(partial(producer,  10, 500), 500);
+    const subscription = pubsub.subscribe('T');
+    console.log('G', subscription);
+    setTimeout(partial(consumer, subscription, 300, 100, 'A'), 0);
+    const subscriptionB = pubsub.subscribe('T');
+    setTimeout(partial(consumer, subscriptionB, 300, 500, 'B'), 0);
 }
+forEach(['ap', 'bp'], console.log)
+console.log('Z')
 
-function test_struct():void {
-    const buf = new CyclicBuffer(200);
-    for (var i = 0; i < 100; ++i) {
-        buf.push(i);
-    }
-    for (var i = 0; i < 200; ++i) {
-        console.log(buf.pop());
-    }
-}
-//test_csp();
-forEach(['a', 'b'], console.log)
+window.addEventListener('load', function() {
+    console.log('X')
+})
+test_pubsub();

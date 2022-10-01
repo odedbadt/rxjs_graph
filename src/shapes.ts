@@ -22,19 +22,19 @@ export interface MouseConfig {
 
 export interface MouseState {
     dragged: number;
-    sprites: Map<number, Sprite>;
+    shapes: Map<number, Shape>;
     edges: Array<[number,number]>;
     down_without_move?:boolean,
     chosen_at?:Vector;
-    dragged_sprite_offset?:Vector;
-    sprite_chosen_at?:Vector;
+    dragged_shape_offset?:Vector;
+    shape_chosen_at?:Vector;
     last_modified: number;
     _src?: any;
     mouse_loc?:Vector;
-    clicked_sprite?: number;
+    clicked_shape?: number;
 }
 
-export interface Sprite {
+export interface Shape {
     color: string,
     shape: string,
     offset: Vector,
@@ -116,18 +116,18 @@ function _draw(config:MouseConfig, offset:Vector, color:string,
 
 }
 
-export function render(config:MouseConfig, sprites:Map<number, Sprite>):void {
+export function render(config:MouseConfig, shapes:Map<number, Shape>):void {
     config.ctx.clearRect(0,0,600,600);
     config.mouse_trap_ctx.clearRect(0,0,600,600);
     // iterate by key order
-    var zindices = Array.from(sprites.keys());
+    var zindices = Array.from(shapes.keys());
     zindices.sort();
-    sprites.forEach(function(sprite:Sprite, sprite_id:number) {
-        if (!SHAPES.has(sprite.shape)) {
-            throw new Error('No such shape: ' + sprite.shape)
+    shapes.forEach(function(shape:Shape, shape_id:number) {
+        if (!SHAPES.has(shape.shape)) {
+            throw new Error('No such shape: ' + shape.shape)
         }
-        const shape_callback = partial(SHAPES.get(sprite.shape), sprite.properties);
-        _draw(config, sprite.offset, sprite.color, sprite_id, shape_callback)
+        const shape_callback = partial(SHAPES.get(shape.shape), shape.properties);
+        _draw(config, shape.offset, shape.color, shape_id, shape_callback)
     });
 }
 class MouseProcessor {
@@ -141,21 +141,23 @@ class MouseProcessor {
     }
 }
 
-async function mouse_processor_process(config:MouseConfig,
-    initial_state:MouseState,
-    ):Promise<any> {
+async function mouse_processor_process():Promise<any> {
       // Called with every mouse event
       //
-      var mouse_state = clone(this._state);
+      var mouse_state = clone(this.state);
       var c = 0;
-      var subscription = this._pubsub.subscribe(MOUSE_INPUT)
+      var subscription = this.pubsub.subscribe(MOUSE_INPUT)
+      var config = this.config;
       while (true) {
-          render(config, this._mouse_state.sprites);
+          render(this.config, this.state.shapes);
           var prev_state = mouse_state;
           mouse_state = clone(mouse_state);
           mouse_state._src = 'user_input'
           const evt = await subscription.get();
-          const rect = config.canvas.getBoundingClientRect()
+          if (!evt) {
+            continue;
+          }
+          const rect = this.config.canvas.getBoundingClientRect()
           const x = evt.clientX - rect.left
           const y = evt.clientY - rect.top
           if (evt._src == 'upstream') {
@@ -163,7 +165,7 @@ async function mouse_processor_process(config:MouseConfig,
           }
           switch (evt.type) {
             case 'upstream':
-                mouse_state.sprites = evt.sprites;
+                mouse_state.shapes = evt.shapes;
                 break;
             case 'mousedown':
             if (evt.shiftKey) {
@@ -185,48 +187,48 @@ async function mouse_processor_process(config:MouseConfig,
                         dragged_data[0] * 256 * 256 +
                         dragged_data[1] * 256 +
                         dragged_data[2];
-                console.log(config.debug_mapping)
-                const dragged = config.debug ?
+                console.log(this.config.debug_mapping)
+                const dragged = this.config.debug ?
                       config.debug_mapping.b.get(dragged_unmapped) :
                       dragged_unmapped;
                 console.log(evt,
     x, y,
                     dragged_data, dragged_unmapped, config.debug_mapping.b.get(dragged_unmapped), config.debug_mapping.f.get(dragged_unmapped))
                 if (dragged > -1) {
-                    console.log(config.debug_mapping.f.get(0), config.debug_mapping.f.get(1))
+                    console.log(this.config.debug_mapping.f.get(0), config.debug_mapping.f.get(1))
                     mouse_state.dragged = dragged;
                     mouse_state.chosen_at = [x, y];
-                    mouse_state.dragged_sprite_offset = mouse_state.sprites.get(dragged).offset;
-                    mouse_state.sprite_chosen_at = mouse_state.sprites.get(dragged).offset;
+                    mouse_state.dragged_shape_offset = mouse_state.shapes.get(dragged).offset;
+                    mouse_state.shape_chosen_at = mouse_state.shapes.get(dragged).offset;
                 }
                 break;
             }
             case 'mousemove':
                 mouse_state.down_without_move = false
                 if (prev_state.dragged != -1) {
-                    const sprite_loc = prev_state.sprites.get(prev_state.dragged).offset
+                    const shape_loc = prev_state.shapes.get(prev_state.dragged).offset
                     const mouse_loc = [x, y] as Vector
-                    //new_loc = mouse_loc + sprite_chosen_at - chosen_at
-                    //sprite_chosen_at = new_loc + chosen_at - mouse_loc
+                    //new_loc = mouse_loc + shape_chosen_at - chosen_at
+                    //shape_chosen_at = new_loc + chosen_at - mouse_loc
                     const new_loc = plus(minus(
-                            prev_state.sprite_chosen_at, // S0
+                            prev_state.shape_chosen_at, // S0
                             prev_state.chosen_at), // M0
                             mouse_loc);
-                    mouse_state.dragged_sprite_offset = new_loc;
-                    mouse_state.sprites.get(mouse_state.dragged).offset =
-                        mouse_state.dragged_sprite_offset;
+                    mouse_state.dragged_shape_offset = new_loc;
+                    mouse_state.shapes.get(mouse_state.dragged).offset =
+                        mouse_state.dragged_shape_offset;
                     mouse_state.last_modified = mouse_state.dragged;
                     mouse_state.mouse_loc = mouse_loc;
-                    mouse_state.clicked_sprite = prev_state.dragged;
+                    mouse_state.clicked_shape = prev_state.dragged;
                     break;
                 }
             case 'mouseup':
                 if (mouse_state.dragged != -1) {
-                    mouse_state.sprites.get(mouse_state.dragged).offset =
-                        mouse_state.dragged_sprite_offset;
+                    mouse_state.shapes.get(mouse_state.dragged).offset =
+                        mouse_state.dragged_shape_offset;
                 }
                 if (prev_state.down_without_move) {
-                    mouse_state.clicked_sprite = mouse_state.dragged;
+                    mouse_state.clicked_shape = mouse_state.dragged;
 
                 }
                 mouse_state.down_without_move = false;
@@ -234,7 +236,8 @@ async function mouse_processor_process(config:MouseConfig,
             default:
             break;
           }
-          this.pubsub.publish_value(MOUSE_OUTPUT, mouse_state);
+          //console.log('SENDING', mouse_state);
+          //this.pubsub.publish_value(MOUSE_OUTPUT, mouse_state);
         }
 }
 

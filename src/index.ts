@@ -1,10 +1,10 @@
 import { partial, forEach, map, random, findIndex, range, set, clone, forIn, zip } from 'lodash-es';
 import {PubSub} from './pubsub'
 import {Vector, plus, minus, round, scale} from './vector'
-import {IndicesPermutation, MouseConfig, MouseState, Sprite, init_mouse, 
-    permute_indices, MOUSE_INPUT, MOUSE_OUTPUT, render} from './sprites'
+import {IndicesPermutation, MouseConfig, MouseState, Shape, init_mouse,
+    permute_indices, MOUSE_INPUT, MOUSE_OUTPUT, render} from './shapes'
 
-interface PhysicalObject     {
+interface PhysicalObject {
     offset: Vector;
 }
 interface PhysicalState {
@@ -17,41 +17,45 @@ async function _data_processor(pubsub:PubSub, mouse_input:string, mouse_output:s
         'objects': [
         ]
     }
-    var subscription = pubsub.subscribe(mouse_output);
+    var subscription = pubsub.subscribe(MOUSE_OUTPUT);
     while (true) {
         const prev_physical_state = clone(physical_state)
-        const sprite_state = await subscription.get();
-        physical_state.objects = map(sprite_state.sprites, 
-            function(sprite:Sprite, j:number) {
-            if (j == sprite_state.dragged) {
+        const shape_state = await subscription.get();
+        console.log('GOT', shape_state);
+        if (!shape_state) {
+            continue
+        }
+        physical_state.objects = map(shape_state.shapes,
+            function(shape:Shape, j:number) {
+            if (j == shape_state.dragged) {
                 return {
-                    'offset': round(scale(sprite_state.dragged_sprite_offset, 1/4), 1)}
+                    'offset': round(scale(shape_state.dragged_shape_offset, 1/4), 1)}
             } else {
-                return {'offset': round(scale(sprite.properties.offset, 1/4), 1)}
+                return {'offset': round(scale(shape.properties.offset, 1/4), 1)}
             }
         })
-        if (sprite_state.dragged != -1) {
-            const sprites = new Map<number, Sprite>(map(zip(physical_state.objects,
-                sprite_state.sprites.values()), function(
-                obj_sprite_pair: [PhysicalObject, Sprite], j:number) {
-                    const object = obj_sprite_pair[0];
-                    const sprite = obj_sprite_pair[1];
-                    const result:Sprite = {
-                        'color': sprite.color,
-                        'offset': object ? scale(object.offset, 4) : sprite.offset,
-                        'shape': sprite.shape,
+        if (shape_state.dragged != -1) {
+            const shapes = new Map<number, Shape>(map(zip(physical_state.objects,
+                shape_state.shapes.values()), function(
+                obj_shape_pair: [PhysicalObject, Shape], j:number) {
+                    const object = obj_shape_pair[0];
+                    const shape = obj_shape_pair[1];
+                    const result:Shape = {
+                        'color': shape.color,
+                        'offset': object ? scale(object.offset, 4) : shape.offset,
+                        'shape': shape.shape,
                         'properties': {
-                            'radius': sprite.properties.radius
+                            'radius': shape.properties.radius
                         }
                     }                    
                     return [j, result];
                 }
             ));
-            if (sprite_state._src != 'upstream') {
+            if (shape_state._src != 'upstream') {
                 pubsub.publish_value(mouse_input, {
                     'type': 'data',
                     '_src': 'upstream',
-                    'sprites': sprites});
+                    'shapes': shapes});
             }
         }
     }
@@ -66,9 +70,9 @@ function init() {
       'canvas': (document.getElementById('canvas') as HTMLCanvasElement),
       'ctx': (document.getElementById('canvas') as HTMLCanvasElement).getContext('2d')
     }
-    const initial_sprite_state:MouseState = {
+    const initial_shape_state:MouseState = {
       'dragged': -1,
-      'sprites': new Map<number, Sprite>(map(range(0,5),
+      'shapes': new Map<number, Shape>(map(range(0,5),
               ((x:number, j:number)=>[j, {
             'shape': 'circle',
             'offset': [x*50+100,x*50+100],
@@ -82,7 +86,7 @@ function init() {
     }
     const initial_mouse_state:MouseState = {
       'dragged': -1,
-      'sprites': new Map<number, Sprite>(map(range(0,5),
+      'shapes': new Map<number, Shape>(map(range(0,5),
               ((x:number, j:number)=>[j, {
             'shape': 'circle',
             'offset': [x*50+100,x*50+100],

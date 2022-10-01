@@ -6,7 +6,7 @@ module.exports = {
     vector: './src/vector.ts',
     pubsub: './src/pubsub.ts',
     index: './src/index.ts',
-    sprites: './src/sprites.ts',
+    shapes: './src/shapes.ts',
     struct: './src/struct.ts',
   },
   target: 'es8',
